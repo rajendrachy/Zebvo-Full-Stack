@@ -14,12 +14,7 @@ const MONGODB_URI = process.env.MONGODB_URI;
 
 // Enable CORS for frontend requests (localhost + Vercel + Render)
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    /\.vercel\.app$/,
-    /\.onrender\.com$/
-  ],
+  origin: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
