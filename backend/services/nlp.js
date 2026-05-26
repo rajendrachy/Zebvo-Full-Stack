@@ -187,6 +187,35 @@ export function classifyCategory(text) {
  */
 export function generateSummary(text, category, platform) {
   if (!text) return '';
+  const lower = text.toLowerCase();
+
+  // Extract delay duration (e.g., "delayed for 3 weeks")
+  const durMatch = lower.match(/delayed for (\d+\s?(?:weeks?|days?))/);
+  const duration = durMatch ? durMatch[1] : null;
+
+  // Extract location (e.g., "in Delhi")
+  const locMatch = lower.match(/in ([a-zA-Z]+)/);
+  const location = locMatch ? locMatch[1] : null;
+
+  // Determine topic (focus on passport renewal if mentioned)
+  const topic = /passport renewal/.test(lower) ? "passport renewal" : /passport/.test(lower) ? "passport" : null;
+
+  // Build concise summary
+  let summary = "User reports";
+  if (duration) summary += ` a ${duration}`;
+  if (topic) summary += ` ${topic}`;
+  if (location) summary += ` in ${location}`;
+
+  // Detect lack of response
+  if (lower.includes('nobody') || lower.includes('no response')) {
+    summary += " and lack of response from authorities";
+  }
+
+  summary = summary.trim();
+  if (!summary.endsWith('.')) summary += '.';
+  return summary;
+}
+  if (!text) return '';
   const clean = text.replace(/\s+/g, ' ').trim();
   const words = clean.split(' ');
 
