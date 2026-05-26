@@ -18,7 +18,9 @@ import {
   MapPin,
   ChevronDown,
   ChevronUp,
-  FileText
+  FileText,
+  Sun,
+  Moon
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -68,6 +70,12 @@ const CATEGORIES = [
 const SENTIMENTS = ['Positive', 'Negative', 'Neutral'];
 
 export default function App() {
+  const [theme, setTheme] = useState('dark');
+  
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
   // Navigation & View Tabs
   // 'feed' (clean posts), 'clustered' (clean posts grouped), 'spam' (gibberish posts), 'analytics' (metrics & graphs)
   const [activeTab, setActiveTab] = useState('feed');
@@ -309,6 +317,14 @@ export default function App() {
             <h2 className="logo-text">Zebvo News</h2>
             <span className="logo-sub">Passport Monitor</span>
           </div>
+          <button 
+            onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+            className="btn btn-secondary"
+            style={{ marginLeft: 'auto', padding: '8px', borderRadius: '50%', background: 'transparent' }}
+            title="Toggle Theme"
+          >
+            {theme === 'dark' ? <Sun size={18} color="var(--primary)" /> : <Moon size={18} color="var(--primary)" />}
+          </button>
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '30px', flexGrow: 1 }}>
