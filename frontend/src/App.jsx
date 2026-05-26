@@ -235,13 +235,15 @@ export default function App() {
       const res = await fetch(`${API_BASE}/scrape/trigger`, { method: 'POST' });
       if (!res.ok) throw new Error('Scraper simulation failed');
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.post) {
         setScrapeNotification(`Scraped new post from ${data.post.platform} (@${data.post.author})!`);
         setTimeout(() => setScrapeNotification(null), 5000);
         
         // Refresh feed and stats
         fetchFeed();
         fetchStats();
+      } else {
+        alert(data.message || 'No new unique posts found at this time.');
       }
     } catch (err) {
       alert(`Failed to scrape: ${err.message}`);

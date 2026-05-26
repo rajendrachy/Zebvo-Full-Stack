@@ -222,6 +222,12 @@ router.post('/translate', async (req, res) => {
 router.post('/scrape/trigger', async (req, res) => {
   try {
     const newPost = await scrapeNewPost();
+    if (!newPost) {
+      return res.json({
+        success: false,
+        message: 'No new unique posts found at this time.'
+      });
+    }
     res.json({
       success: true,
       message: 'Scraper triggered successfully.',
