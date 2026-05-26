@@ -38,7 +38,7 @@ import {
 } from 'recharts';
 import { exportToCSV, exportToPDF } from './utils/exporters';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
 
 const TARGET_LANGUAGES = [
   'English',

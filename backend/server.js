@@ -12,8 +12,16 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI;
 
-// Enable CORS for frontend requests
-app.use(cors());
+// Enable CORS for frontend requests (localhost + Vercel production)
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    /\.vercel\.app$/
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
 
 // Parse incoming JSON payloads
 app.use(express.json());
