@@ -1,14 +1,13 @@
 import express from 'express';
-import { readPosts, writePosts, scrapeNewPost, processPost } from '../services/scraper.js';
+import { scrapeNewPost, seedInitialPosts, processPost } from '../services/scraper.js';
 import { clusterPosts } from '../services/nlp.js';
 import { translateText } from '../services/translation.js';
+import Post from '../models/Post.js';
 
 const router = express.Router();
 
-// Helper to filter and sort posts
-function getFilteredAndSortedPosts(req) {
-  let posts = readPosts();
-
+// Helper to filter and sort posts using MongoDB queries
+async function getFilteredAndSortedPosts(req) {
   const {
     platform,
     region,
@@ -21,77 +20,87 @@ function getFilteredAndSortedPosts(req) {
     sortOrder = 'desc'
   } = req.query;
 
+  // Build filter object
+  const filterQuery = {};
+
   // 1. Filter out spam by default
   const showSpam = includeSpam === 'true';
-  posts = posts.filter(post => post.isGibberish === showSpam);
+  filterQuery.isGibberish = showSpam;
 
   // 2. Platform filter
-  if (platform) {
-    posts = posts.filter(post => post.platform.toLowerCase() === platform.toLowerCase());
+  if (platform && platform !== 'all') {
+    filterQuery.platform = new RegExp(`^${platform}$`, 'i');
   }
 
   // 3. Region filter
-  if (region) {
-    posts = posts.filter(post => post.region.toLowerCase() === region.toLowerCase());
+  if (region && region !== 'all') {
+    filterQuery.region = new RegExp(`^${region}$`, 'i');
   }
 
   // 4. Category filter
-  if (category) {
-    posts = posts.filter(post => post.category.toLowerCase() === category.toLowerCase());
+  if (category && category !== 'all') {
+    filterQuery.category = new RegExp(`^${category}$`, 'i');
   }
 
   // 5. Sentiment filter
-  if (sentiment) {
-    posts = posts.filter(post => post.sentiment.toLowerCase() === sentiment.toLowerCase());
+  if (sentiment && sentiment !== 'all') {
+    filterQuery.sentiment = new RegExp(`^${sentiment}$`, 'i');
   }
 
   // 6. Language filter
-  if (language) {
-    posts = posts.filter(post => post.language.toLowerCase() === language.toLowerCase());
+  if (language && language !== 'all') {
+    filterQuery.language = new RegExp(`^${language}$`, 'i');
   }
 
-  // 7. Search filter (cross-searching original text, summary, handle, and authorName)
+  // 7. Search filter (cross-searching original text, summary, handle, authorName, and region)
   if (search) {
-    const query = search.toLowerCase().trim();
-    posts = posts.filter(post => 
-      post.text.toLowerCase().includes(query) ||
-      (post.summary && post.summary.toLowerCase().includes(query)) ||
-      post.author.toLowerCase().includes(query) ||
-      post.authorName.toLowerCase().includes(query) ||
-      post.region.toLowerCase().includes(query)
-    );
+    const query = search.trim();
+    filterQuery.$or = [
+      { text: { $regex: query, $options: 'i' } },
+      { summary: { $regex: query, $options: 'i' } },
+      { author: { $regex: query, $options: 'i' } },
+      { authorName: { $regex: query, $options: 'i' } },
+      { region: { $regex: query, $options: 'i' } }
+    ];
   }
 
-  // 8. Sorting
-  posts.sort((a, b) => {
-    let valA, valB;
+  // Find posts in DB
+  let dbQuery = Post.find(filterQuery);
 
-    if (sortBy === 'engagement') {
-      valA = (a.likes || 0) + (a.shares || 0) + (a.comments || 0);
-      valB = (b.likes || 0) + (b.shares || 0) + (b.comments || 0);
-    } else if (sortBy === 'likes') {
-      valA = a.likes || 0;
-      valB = b.likes || 0;
-    } else {
-      // Default: sortBy === 'time'
-      valA = new Date(a.timestamp).getTime();
-      valB = new Date(b.timestamp).getTime();
-    }
+  // Sorting
+  const sortDirection = sortOrder === 'asc' ? 1 : -1;
+  if (sortBy === 'likes') {
+    dbQuery = dbQuery.sort({ likes: sortDirection });
+  } else if (sortBy === 'time') {
+    dbQuery = dbQuery.sort({ timestamp: sortDirection });
+  } else {
+    // Default time sorting for queries
+    dbQuery = dbQuery.sort({ timestamp: sortDirection });
+  }
 
-    if (sortOrder === 'asc') {
-      return valA > valB ? 1 : -1;
-    } else {
-      return valA < valB ? 1 : -1;
-    }
-  });
+  // Fetch as plain JavaScript objects
+  const posts = await dbQuery.lean();
 
-  return posts;
+  // Special Engagement sorting in memory (likes + shares + comments)
+  if (sortBy === 'engagement') {
+    posts.sort((a, b) => {
+      const valA = (a.likes || 0) + (a.shares || 0) + (a.comments || 0);
+      const valB = (b.likes || 0) + (b.shares || 0) + (b.comments || 0);
+      return sortOrder === 'asc' ? valA - valB : valB - valA;
+    });
+  }
+
+  // Format schema fields to match frontend expectation (mapping _id to id)
+  return posts.map(post => ({
+    ...post,
+    id: post._id.toString()
+  }));
 }
 
 // 1. GET /api/posts - Get standard list of posts (filters & sorting applied)
-router.get('/posts', (req, res) => {
+router.get('/posts', async (req, res) => {
   try {
-    const posts = getFilteredAndSortedPosts(req);
+    const posts = await getFilteredAndSortedPosts(req);
     res.json({
       success: true,
       count: posts.length,
@@ -103,10 +112,10 @@ router.get('/posts', (req, res) => {
 });
 
 // 2. GET /api/posts/clustered - Get clustered duplicate posts (threaded view)
-router.get('/posts/clustered', (req, res) => {
+router.get('/posts/clustered', async (req, res) => {
   try {
     // 1. Get filtered list of non-spam posts
-    const filteredPosts = getFilteredAndSortedPosts(req);
+    const filteredPosts = await getFilteredAndSortedPosts(req);
     
     // 2. Cluster them
     const clusters = clusterPosts(filteredPosts);
@@ -122,9 +131,9 @@ router.get('/posts/clustered', (req, res) => {
 });
 
 // 3. GET /api/stats - Dashboard analytics endpoints
-router.get('/stats', (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
-    const allPosts = readPosts();
+    const allPosts = await Post.find().lean();
     const cleanPosts = allPosts.filter(p => !p.isGibberish);
     const spamPosts = allPosts.filter(p => p.isGibberish);
 
@@ -210,33 +219,34 @@ router.post('/translate', async (req, res) => {
 });
 
 // 5. POST /api/scrape/trigger - Trigger immediate scrape of 1 new simulated post
-router.post('/scrape/trigger', (req, res) => {
+router.post('/scrape/trigger', async (req, res) => {
   try {
-    const newPost = scrapeNewPost();
+    const newPost = await scrapeNewPost();
     res.json({
       success: true,
       message: 'Scraper triggered successfully.',
-      post: newPost
+      post: {
+        ...newPost.toObject(),
+        id: newPost._id.toString()
+      }
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 6. POST /api/reset - Resets the store back to the seed posts
-router.post('/reset', (req, res) => {
+// 6. POST /api/reset - Resets the database back to seed records
+router.post('/reset', async (req, res) => {
   try {
-    // Delete store file
-    const dbPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../db/store.json');
-    if (fs.existsSync(dbPath)) {
-      fs.unlinkSync(dbPath);
-    }
-    // Re-read triggers seeding
-    const posts = readPosts();
+    // Delete all MongoDB posts
+    await Post.deleteMany({});
+    
+    // Seed new database
+    await seedInitialPosts();
+
     res.json({
       success: true,
-      message: 'Database reset successfully to seed records.',
-      count: posts.length
+      message: 'Database reset successfully to seed records.'
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

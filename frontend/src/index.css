@@ -461,7 +461,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .form-control {
   width: 100%;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
@@ -471,11 +471,17 @@ h1, h2, h3, h4, h5, h6 {
   outline: none;
 }
 
+.form-control option {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
 .form-control:focus {
   border-color: var(--primary);
   background: rgba(255, 255, 255, 0.06);
   box-shadow: 0 0 10px rgba(124, 58, 237, 0.2);
 }
+
 
 .search-input-wrapper .form-control {
   padding-left: 36px;
@@ -654,20 +660,26 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .select-lang-dropdown {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-sm);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   padding: 6px 12px;
   font-size: 0.8rem;
   outline: none;
   cursor: pointer;
 }
 
+.select-lang-dropdown option {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
 .select-lang-dropdown:focus {
   border-color: var(--primary);
   color: var(--text-primary);
 }
+
 
 .translated-result-box {
   background: rgba(14, 116, 144, 0.05);

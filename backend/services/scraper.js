@@ -1,17 +1,5 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { isGibberish, analyzeSentiment, classifyCategory, generateSummary } from './nlp.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DB_PATH = path.join(__dirname, '../db/store.json');
-
-// Ensure db directory exists
-const dbDir = path.join(__dirname, '../db');
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
+import Post from '../models/Post.js';
 
 // Initial Mock Data Seed
 const SEED_POSTS = [
@@ -25,7 +13,7 @@ const SEED_POSTS = [
     likes: 45,
     shares: 12,
     comments: 8,
-    timestamp: new Date(Date.now() - 3 * 3600000).toISOString(), // 3 hrs ago
+    timestamp: new Date(Date.now() - 3 * 3600000), // 3 hrs ago
     language: 'English'
   },
   {
@@ -37,7 +25,7 @@ const SEED_POSTS = [
     likes: 12,
     shares: 2,
     comments: 1,
-    timestamp: new Date(Date.now() - 2.5 * 3600000).toISOString(), // Duplicate for clustering
+    timestamp: new Date(Date.now() - 2.5 * 3600000), // Duplicate for clustering
     language: 'English'
   },
   {
@@ -49,7 +37,7 @@ const SEED_POSTS = [
     likes: 28,
     shares: 0,
     comments: 19,
-    timestamp: new Date(Date.now() - 6 * 3600000).toISOString(), // 6 hrs ago
+    timestamp: new Date(Date.now() - 6 * 3600000), // 6 hrs ago
     language: 'English'
   },
 
@@ -63,7 +51,7 @@ const SEED_POSTS = [
     likes: 210,
     shares: 154,
     comments: 43,
-    timestamp: new Date(Date.now() - 5 * 3600000).toISOString(),
+    timestamp: new Date(Date.now() - 5 * 3600000),
     language: 'English'
   },
   {
@@ -75,7 +63,7 @@ const SEED_POSTS = [
     likes: 54,
     shares: 32,
     comments: 9,
-    timestamp: new Date(Date.now() - 4.5 * 3600000).toISOString(), // Duplicate alert
+    timestamp: new Date(Date.now() - 4.5 * 3600000), // Duplicate alert
     language: 'English'
   },
   {
@@ -87,7 +75,7 @@ const SEED_POSTS = [
     likes: 120,
     shares: 98,
     comments: 11,
-    timestamp: new Date(Date.now() - 4 * 3600000).toISOString(), // Another duplicate alert
+    timestamp: new Date(Date.now() - 4 * 3600000), // Another duplicate alert
     language: 'English'
   },
 
@@ -101,7 +89,7 @@ const SEED_POSTS = [
     likes: 189,
     shares: 14,
     comments: 22,
-    timestamp: new Date(Date.now() - 1 * 3600000).toISOString(), // 1 hr ago
+    timestamp: new Date(Date.now() - 1 * 3600000), // 1 hr ago
     language: 'English'
   },
   {
@@ -113,7 +101,7 @@ const SEED_POSTS = [
     likes: 420,
     shares: 48,
     comments: 31,
-    timestamp: new Date(Date.now() - 8 * 3600000).toISOString(),
+    timestamp: new Date(Date.now() - 8 * 3600000),
     language: 'English'
   },
 
@@ -127,7 +115,7 @@ const SEED_POSTS = [
     likes: 5,
     shares: 0,
     comments: 14,
-    timestamp: new Date(Date.now() - 10 * 3600000).toISOString(),
+    timestamp: new Date(Date.now() - 10 * 3600000),
     language: 'English'
   },
   {
@@ -139,7 +127,7 @@ const SEED_POSTS = [
     likes: 15,
     shares: 0,
     comments: 24,
-    timestamp: new Date(Date.now() - 12 * 3600000).toISOString(),
+    timestamp: new Date(Date.now() - 12 * 3600000),
     language: 'English'
   },
 
@@ -153,7 +141,7 @@ const SEED_POSTS = [
     likes: 85,
     shares: 43,
     comments: 32,
-    timestamp: new Date(Date.now() - 2 * 3600000).toISOString(),
+    timestamp: new Date(Date.now() - 2 * 3600000),
     language: 'English'
   },
 
@@ -167,7 +155,7 @@ const SEED_POSTS = [
     likes: 1500,
     shares: 890,
     comments: 120,
-    timestamp: new Date(Date.now() - 14 * 3600000).toISOString(),
+    timestamp: new Date(Date.now() - 14 * 3600000),
     language: 'English'
   },
   {
@@ -179,7 +167,7 @@ const SEED_POSTS = [
     likes: 890,
     shares: 610,
     comments: 45,
-    timestamp: new Date(Date.now() - 13.5 * 3600000).toISOString(), // Duplicate announcement
+    timestamp: new Date(Date.now() - 13.5 * 3600000), // Duplicate announcement
     language: 'English'
   },
 
@@ -193,7 +181,7 @@ const SEED_POSTS = [
     likes: 310,
     shares: 98,
     comments: 18,
-    timestamp: new Date(Date.now() - 18 * 3600000).toISOString(),
+    timestamp: new Date(Date.now() - 18 * 3600000),
     language: 'English'
   },
 
@@ -207,7 +195,7 @@ const SEED_POSTS = [
     likes: 1240,
     shares: 12,
     comments: 54,
-    timestamp: new Date(Date.now() - 4 * 3600000).toISOString(),
+    timestamp: new Date(Date.now() - 4 * 3600000),
     language: 'English'
   },
 
@@ -221,7 +209,7 @@ const SEED_POSTS = [
     likes: 8,
     shares: 0,
     comments: 5,
-    timestamp: new Date(Date.now() - 11 * 3600000).toISOString(),
+    timestamp: new Date(Date.now() - 11 * 3600000),
     language: 'Punjabi'
   },
   {
@@ -233,7 +221,7 @@ const SEED_POSTS = [
     likes: 35,
     shares: 18,
     comments: 7,
-    timestamp: new Date(Date.now() - 9 * 3600000).toISOString(),
+    timestamp: new Date(Date.now() - 9 * 3600000),
     language: 'Hindi'
   },
   {
@@ -245,7 +233,7 @@ const SEED_POSTS = [
     likes: 14,
     shares: 8,
     comments: 11,
-    timestamp: new Date(Date.now() - 7 * 3600000).toISOString(),
+    timestamp: new Date(Date.now() - 7 * 3600000),
     language: 'Spanish'
   },
 
@@ -259,7 +247,7 @@ const SEED_POSTS = [
     likes: 0,
     shares: 0,
     comments: 0,
-    timestamp: new Date(Date.now() - 2 * 3600000).toISOString(),
+    timestamp: new Date(Date.now() - 2 * 3600000),
     language: 'English'
   },
   {
@@ -271,7 +259,7 @@ const SEED_POSTS = [
     likes: 1,
     shares: 0,
     comments: 0,
-    timestamp: new Date(Date.now() - 1.5 * 3600000).toISOString(),
+    timestamp: new Date(Date.now() - 1.5 * 3600000),
     language: 'English'
   },
   {
@@ -283,12 +271,12 @@ const SEED_POSTS = [
     likes: 0,
     shares: 0,
     comments: 0,
-    timestamp: new Date(Date.now() - 5 * 60000).toISOString(), // 5 mins ago
+    timestamp: new Date(Date.now() - 5 * 60000), // 5 mins ago
     language: 'English'
   }
 ];
 
-// Helper to generate a unique post ID
+// Helper to generate a unique post ID reference
 function generateId() {
   return 'post_' + Math.random().toString(36).substr(2, 9);
 }
@@ -302,7 +290,6 @@ export function processPost(rawPost) {
   const summary = generateSummary(text, category, rawPost.platform);
 
   return {
-    id: rawPost.id || generateId(),
     platform: rawPost.platform,
     author: rawPost.author,
     authorName: rawPost.authorName,
@@ -311,7 +298,7 @@ export function processPost(rawPost) {
     likes: rawPost.likes !== undefined ? rawPost.likes : 0,
     shares: rawPost.shares !== undefined ? rawPost.shares : 0,
     comments: rawPost.comments !== undefined ? rawPost.comments : 0,
-    timestamp: rawPost.timestamp || new Date().toISOString(),
+    timestamp: rawPost.timestamp || new Date(),
     language: rawPost.language || 'English',
     sentiment: sentiment,
     category: category,
@@ -320,29 +307,20 @@ export function processPost(rawPost) {
   };
 }
 
-// Read posts from store file
-export function readPosts() {
+// Seeding Initial Data into MongoDB
+export async function seedInitialPosts() {
   try {
-    if (!fs.existsSync(DB_PATH)) {
-      // Seed initial data
+    const count = await Post.countDocuments();
+    if (count === 0) {
+      console.log('[Server] MongoDB is empty. Seeding initial posts...');
       const processed = SEED_POSTS.map(p => processPost(p));
-      fs.writeFileSync(DB_PATH, JSON.stringify(processed, null, 2), 'utf-8');
-      return processed;
+      await Post.insertMany(processed);
+      console.log(`[Server] Seeded ${processed.length} initial posts in MongoDB.`);
+    } else {
+      console.log(`[Server] Database contains ${count} posts. Seeding skipped.`);
     }
-    const data = fs.readFileSync(DB_PATH, 'utf-8');
-    return JSON.parse(data);
   } catch (error) {
-    console.error('Error reading posts from DB:', error);
-    return [];
-  }
-}
-
-// Write posts to store file
-export function writePosts(posts) {
-  try {
-    fs.writeFileSync(DB_PATH, JSON.stringify(posts, null, 2), 'utf-8');
-  } catch (error) {
-    console.error('Error writing posts to DB:', error);
+    console.error('Error seeding MongoDB:', error);
   }
 }
 
@@ -414,41 +392,42 @@ const LIVE_TEMPLATES = [
 ];
 
 // Simulates checking for "new" posts and appending them to the database
-export function scrapeNewPost() {
-  const posts = readPosts();
-  
-  // Pick a random template
-  const templateIndex = Math.floor(Math.random() * LIVE_TEMPLATES.length);
-  const template = LIVE_TEMPLATES[templateIndex];
-  
-  const newRawPost = {
-    ...template,
-    id: generateId(),
-    likes: Math.floor(Math.random() * 50) + (template.likes || 0),
-    shares: Math.floor(Math.random() * 20) + (template.shares || 0),
-    comments: Math.floor(Math.random() * 10) + (template.comments || 0),
-    timestamp: new Date().toISOString()
-  };
+export async function scrapeNewPost() {
+  try {
+    // Pick a random template
+    const templateIndex = Math.floor(Math.random() * LIVE_TEMPLATES.length);
+    const template = LIVE_TEMPLATES[templateIndex];
+    
+    const newRawPost = {
+      ...template,
+      likes: Math.floor(Math.random() * 50) + (template.likes || 0),
+      shares: Math.floor(Math.random() * 20) + (template.shares || 0),
+      comments: Math.floor(Math.random() * 10) + (template.comments || 0),
+      timestamp: new Date()
+    };
 
-  const processed = processPost(newRawPost);
-  posts.unshift(processed); // Add to the beginning of the array
+    const processed = processPost(newRawPost);
+    const newPostDoc = new Post(processed);
+    await newPostDoc.save();
 
-  // Maintain last 100 posts to avoid file bloating
-  if (posts.length > 100) {
-    posts.pop();
+    console.log(`[Scraper] Aggregated new post from ${processed.platform} under category: ${processed.category} in MongoDB.`);
+    return newPostDoc;
+  } catch (err) {
+    console.error('Error in scrapeNewPost:', err);
+    throw err;
   }
-
-  writePosts(posts);
-  console.log(`[Scraper] Aggregated new post from ${processed.platform} under category: ${processed.category}`);
-  return processed;
 }
 
 // Set up periodic simulation (every 30 seconds)
 let intervalId = null;
 export function startScraperScheduler() {
   if (intervalId) return;
-  intervalId = setInterval(() => {
-    scrapeNewPost();
+  intervalId = setInterval(async () => {
+    try {
+      await scrapeNewPost();
+    } catch (err) {
+      console.error('[Scraper] Background scheduler error:', err);
+    }
   }, 30000); // 30 seconds
   console.log('[Scraper] Background scraper scheduler started (30s interval).');
 }

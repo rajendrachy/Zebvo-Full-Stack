@@ -684,7 +684,27 @@ export default function App() {
                     {activeTab === 'clustered' ? clusteredPosts.length : posts.length} records found
                   </span>
                 </div>
+                
+                <div className="feed-header-actions" style={{ display: 'flex', gap: '10px' }}>
+                  <button 
+                    onClick={handleCSVExport} 
+                    className="btn btn-secondary" 
+                    style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#a7f3d0' }}
+                  >
+                    <Download size={14} />
+                    Export CSV
+                  </button>
+                  <button 
+                    onClick={handlePDFExport} 
+                    className="btn btn-secondary" 
+                    style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}
+                  >
+                    <FileText size={14} />
+                    Export PDF
+                  </button>
+                </div>
               </div>
+
 
               {isLoading ? (
                 <div className="loader"></div>
