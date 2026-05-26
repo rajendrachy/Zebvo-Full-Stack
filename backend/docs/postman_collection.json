@@ -1,0 +1,211 @@
+{
+  "info": {
+    "_postman_id": "8a0efd12-bf91-4cf1-8efd-ba32c918a88c",
+    "name": "Zebvo Passport Scraper API",
+    "description": "API collection for Zebvo Social Media Scraper Dashboard aggregating passport-related social postings.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "System Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5000/health",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "health"
+          ]
+        },
+        "description": "Returns backend system health status."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Aggregated Feeds",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5000/api/posts?platform=Twitter&category=Appointments&region=India&sentiment=Negative&search=Jalandhar&sortBy=time&includeSpam=false",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "posts"
+          ],
+          "query": [
+            {
+              "key": "platform",
+              "value": "Twitter",
+              "description": "Filter by platform: Twitter, Facebook, Instagram, LinkedIn, YouTube, Reddit, TikTok"
+            },
+            {
+              "key": "category",
+              "value": "Appointments",
+              "description": "Filter by topic: Application, Renewal, Appointments, Tatkal, Visa, Travel Issues, Government Announcements, Scams/Fraud, News, Personal Experiences"
+            },
+            {
+              "key": "region",
+              "value": "India",
+              "description": "Filter by country/region of origin"
+            },
+            {
+              "key": "sentiment",
+              "value": "Negative",
+              "description": "Filter by sentiment: Positive, Negative, Neutral"
+            },
+            {
+              "key": "search",
+              "value": "Jalandhar",
+              "description": "Search keyword query matching original text, summary, author or region"
+            },
+            {
+              "key": "sortBy",
+              "value": "time",
+              "description": "Sort by: 'time' or 'engagement'"
+            },
+            {
+              "key": "includeSpam",
+              "value": "false",
+              "description": "Filter gibberish. Set to true to view the Spam folder."
+            }
+          ]
+        },
+        "description": "Fetches standard aggregated posts matching provided filter and sorting parameters."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Clustered Threads",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5000/api/posts/clustered?category=Appointments",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "posts",
+            "clustered"
+          ],
+          "query": [
+            {
+              "key": "category",
+              "value": "Appointments"
+            }
+          ]
+        },
+        "description": "Fetches posts grouped into clustered threads by similarity using Jaccard NLP analysis."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Dashboard Analytics Stats",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5000/api/stats",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "stats"
+          ]
+        },
+        "description": "Retrieves statistical aggregates: platform counters, category distribution, region breakdown, sentiment ratios, and aggregation volume timeline."
+      },
+      "response": []
+    },
+    {
+      "name": "Translate Text on Demand",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Trying to book a passport appointment at Jalandhar PSK for 2 weeks, but no slots are available. This booking system is completely clogged. Anyone else facing this?\",\n  \"targetLang\": \"Spanish\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/translate",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "translate"
+          ]
+        },
+        "description": "Translates original text into one of the 10 target languages (English, Hindi, Punjabi, Spanish, French, German, Arabic, Chinese, Russian, Japanese)."
+      },
+      "response": []
+    },
+    {
+      "name": "Trigger Live Scraper Simulation",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5000/api/scrape/trigger",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "scrape",
+            "trigger"
+          ]
+        },
+        "description": "Simulates real-time collection. Aggregates, runs NLP processes, and appends a new passport post to the database immediately."
+      },
+      "response": []
+    },
+    {
+      "name": "Reset Datastore Seed",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5000/api/reset",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "reset"
+          ]
+        },
+        "description": "Clears database store.json and reseeds the system with original records for clean testing."
+      },
+      "response": []
+    }
+  ]
+}
