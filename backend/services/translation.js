@@ -145,34 +145,64 @@ export async function translateText(text, targetLangName) {
     return TRANSLATION_CACHE[cacheKey];
   }
 
+  // 1. Try Google Translate Free API first (best for Romanized/mixed text and auto-detection)
   try {
-    // Call MyMemory translation API (Free, open-source, no credentials)
-    // We request translation from English ('en') to targetCode
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|${targetCode}`;
-    
-    // Set a timeout of 3 seconds to avoid blocking the user response
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetCode}&dt=t&q=${encodeURIComponent(text)}`;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data[0]) {
+        const result = data[0].map(item => item[0]).join('').trim();
+        if (result && result.toLowerCase() !== text.toLowerCase()) {
+          TRANSLATION_CACHE[cacheKey] = result;
+          return result;
+        }
+      }
+    }
+  } catch (error) {
+    console.warn(`Google Translate API failed:`, error.message);
+  }
+
+  // 2. Try MyMemory API as fallback
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|${targetCode}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      signal: controller.signal
+    });
     clearTimeout(timeoutId);
 
     if (response.ok) {
       const data = await response.json();
       if (data.responseData && data.responseData.translatedText) {
-        let result = data.responseData.translatedText;
-        // Clean up double quotes and HTML entities
+        let result = data.responseData.translatedText.trim();
         result = result.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
-        TRANSLATION_CACHE[cacheKey] = result;
-        return result;
+        if (result && result.toLowerCase() !== text.toLowerCase()) {
+          TRANSLATION_CACHE[cacheKey] = result;
+          return result;
+        }
       }
     }
   } catch (error) {
-    console.warn(`Translation API failed for text: "${text.substring(0, 30)}..." to code: ${targetCode}. Using fallback.`, error.message);
+    console.warn(`MyMemory translation API failed:`, error.message);
   }
 
-  // Fallback translation generator (smart mock)
-  // Evaluators appreciate that this continues to function even if offline!
+  // 3. Fallback translation generator (smart mock dictionary)
   const fallbackTranslation = generateFallbackTranslation(text, targetCode);
   TRANSLATION_CACHE[cacheKey] = fallbackTranslation;
   return fallbackTranslation;
