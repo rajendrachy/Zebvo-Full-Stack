@@ -247,8 +247,10 @@ export function exportToPDF(posts, activeFilters = {}) {
           window.onload = function() {
             setTimeout(function() {
               window.print();
-              window.close();
             }, 500);
+          };
+          window.onafterprint = function() {
+            window.close();
           };
         </script>
       </body>
