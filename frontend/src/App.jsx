@@ -20,7 +20,10 @@ import {
   ChevronUp,
   FileText,
   Sun,
-  Moon
+  Moon,
+  Volume2,
+  VolumeX,
+  X
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -104,6 +107,7 @@ export default function App() {
   const [selectedTargetLang, setSelectedTargetLang] = useState({}); // postId -> selected language
   const [translations, setTranslations] = useState({}); // key 'postId_lang' -> text
   const [translatingIds, setTranslatingIds] = useState(new Set()); // set of postIds being translated
+  const [speakingPostId, setSpeakingPostId] = useState(null); // tracking currently playing speech
   const [expandedClusters, setExpandedClusters] = useState(new Set()); // set of cluster leadPost IDs
 
   // Fetch Stats Data
@@ -226,6 +230,75 @@ export default function App() {
         return next;
       });
     }
+  };
+
+  const LANGUAGE_VOICE_MAP = {
+    'English': 'en-US',
+    'Hindi': 'hi-IN',
+    'Punjabi': 'pa-IN',
+    'Spanish': 'es-ES',
+    'French': 'fr-FR',
+    'German': 'de-DE',
+    'Arabic': 'ar-SA',
+    'Chinese': 'zh-CN',
+    'Russian': 'ru-RU',
+    'Japanese': 'ja-JP'
+  };
+
+  // Initialize SpeechSynthesis on mount to avoid load delays
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+    }
+  }, []);
+
+  const handleSpeak = (postId, text, targetLang) => {
+    if (speakingPostId === postId) {
+      window.speechSynthesis.cancel();
+      setSpeakingPostId(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    if (!text) return;
+
+    try {
+      const utterance = new SpeechSynthesisUtterance(text);
+      const langCode = LANGUAGE_VOICE_MAP[targetLang] || 'en-US';
+      utterance.lang = langCode;
+
+      const voices = window.speechSynthesis.getVoices();
+      const matchingVoice = voices.find(v => v.lang.startsWith(langCode) || v.lang.includes(langCode.replace('-', '_')));
+      if (matchingVoice) {
+        utterance.voice = matchingVoice;
+      }
+
+      utterance.onend = () => {
+        setSpeakingPostId(null);
+      };
+      utterance.onerror = () => {
+        setSpeakingPostId(null);
+      };
+
+      setSpeakingPostId(postId);
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.error('Speech synthesis error:', e);
+      setSpeakingPostId(null);
+    }
+  };
+
+  const handleClearTranslation = (postId) => {
+    if (speakingPostId === postId) {
+      window.speechSynthesis.cancel();
+      setSpeakingPostId(null);
+    }
+    setSelectedTargetLang(prev => {
+      const next = { ...prev };
+      delete next[postId];
+      return next;
+    });
   };
 
   // Trigger Manual Scraper Simulation
@@ -814,7 +887,31 @@ export default function App() {
                           {/* Translation Results Box */}
                           {selectedTargetLang[leadPost.id] && translations[`${leadPost.id}_${selectedTargetLang[leadPost.id]}`] && (
                             <div className="translated-result-box">
-                              <div className="translated-header">Translated to {selectedTargetLang[leadPost.id]}</div>
+                              <div className="translated-header">
+                                <span>Translated to {selectedTargetLang[leadPost.id]}</span>
+                                <div className="translated-actions">
+                                  <button
+                                    className={`translate-action-btn ${speakingPostId === leadPost.id ? 'active' : ''}`}
+                                    onClick={() => handleSpeak(
+                                      leadPost.id,
+                                      translations[`${leadPost.id}_${selectedTargetLang[leadPost.id]}`],
+                                      selectedTargetLang[leadPost.id]
+                                    )}
+                                    title={speakingPostId === leadPost.id ? "Stop Listening" : "Listen to Translation"}
+                                  >
+                                    {speakingPostId === leadPost.id ? <VolumeX size={13} /> : <Volume2 size={13} />}
+                                    <span>{speakingPostId === leadPost.id ? "Stop" : "Listen"}</span>
+                                  </button>
+                                  <button
+                                    className="translate-action-btn clear-btn"
+                                    onClick={() => handleClearTranslation(leadPost.id)}
+                                    title="Clear Translation"
+                                  >
+                                    <X size={13} />
+                                    <span>Clear</span>
+                                  </button>
+                                </div>
+                              </div>
                               <div className="translated-text">
                                 {translations[`${leadPost.id}_${selectedTargetLang[leadPost.id]}`]}
                               </div>
@@ -911,7 +1008,31 @@ export default function App() {
                         {/* Translation Results Box */}
                         {selectedTargetLang[post.id] && translations[`${post.id}_${selectedTargetLang[post.id]}`] && (
                           <div className="translated-result-box">
-                            <div className="translated-header">Translated to {selectedTargetLang[post.id]}</div>
+                            <div className="translated-header">
+                              <span>Translated to {selectedTargetLang[post.id]}</span>
+                              <div className="translated-actions">
+                                <button
+                                  className={`translate-action-btn ${speakingPostId === post.id ? 'active' : ''}`}
+                                  onClick={() => handleSpeak(
+                                    post.id,
+                                    translations[`${post.id}_${selectedTargetLang[post.id]}`],
+                                    selectedTargetLang[post.id]
+                                  )}
+                                  title={speakingPostId === post.id ? "Stop Listening" : "Listen to Translation"}
+                                >
+                                  {speakingPostId === post.id ? <VolumeX size={13} /> : <Volume2 size={13} />}
+                                  <span>{speakingPostId === post.id ? "Stop" : "Listen"}</span>
+                                </button>
+                                <button
+                                  className="translate-action-btn clear-btn"
+                                  onClick={() => handleClearTranslation(post.id)}
+                                  title="Clear Translation"
+                                >
+                                  <X size={13} />
+                                  <span>Clear</span>
+                                </button>
+                              </div>
+                            </div>
                             <div className="translated-text">
                               {translations[`${post.id}_${selectedTargetLang[post.id]}`]}
                             </div>
