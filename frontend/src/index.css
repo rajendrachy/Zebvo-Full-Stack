@@ -942,3 +942,46 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--primary);
   color: #fff;
 }
+
+/* Mobile Admin Footer & Responsive Adjustments */
+.mobile-admin-footer {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-admin-footer {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-glass);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-top: 1px solid var(--border-glass-bright);
+    padding: 12px 24px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    z-index: 2000; /* Ensure it stays above everything */
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  .mobile-admin-footer .btn {
+    flex: 1;
+    padding: 12px;
+    font-size: 0.85rem;
+    height: 44px;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .sidebar-scrape-wrapper {
+    display: none !important;
+  }
+
+  /* Padding for main content to prevent mobile admin footer overlap */
+  .main-content {
+    padding-bottom: 90px !important;
+  }
+}

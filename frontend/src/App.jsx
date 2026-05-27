@@ -369,7 +369,7 @@ export default function App() {
             </li>
           </ul>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="sidebar-scrape-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <button
               onClick={handleScrapeTrigger}
               disabled={isScraping}
@@ -925,6 +925,25 @@ export default function App() {
             </section>
           </>
         )}
+
+        {/* MOBILE STICKY ADMIN FOOTER */}
+        <div className="mobile-admin-footer">
+          <button
+            onClick={handleScrapeTrigger}
+            disabled={isScraping}
+            className="btn btn-primary"
+          >
+            <RefreshCw size={14} className={isScraping ? 'animate-spin' : ''} />
+            <span>{isScraping ? 'Scraping...' : 'Scrape Live'}</span>
+          </button>
+          <button
+            onClick={handleReset}
+            className="btn btn-secondary btn-danger"
+          >
+            <Trash2 size={14} />
+            <span>Reset Store</span>
+          </button>
+        </div>
       </main>
     </div>
   );
