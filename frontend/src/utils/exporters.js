@@ -80,7 +80,7 @@ export function exportToCSV(posts) {
 }
 
 /**
- * Export a list of posts to a PDF report
+ * Export a list of posts to a PDF report via printing
  * @param {Array} posts List of processed posts
  * @param {Object} activeFilters Active filters description
  */
@@ -95,7 +95,7 @@ export function exportToPDF(posts, activeFilters = {}) {
     alert('Popup blocked! Please allow popups to export PDF.');
     return;
   }
-
+  
   // Format filter values
   const filterDesc = Object.entries(activeFilters)
     .filter(([_, val]) => val && val !== 'all')
@@ -123,8 +123,6 @@ export function exportToPDF(posts, activeFilters = {}) {
     </div>
   `).join('');
 
-  const pdfFilename = `passport_social_media_report_${new Date().toISOString().split('T')[0]}.pdf`;
-
   printWindow.document.write(`
     <html>
       <head>
@@ -135,7 +133,6 @@ export function exportToPDF(posts, activeFilters = {}) {
             color: #333;
             padding: 40px 30px;
             line-height: 1.5;
-            background-color: #ffffff;
           }
           .report-header {
             border-bottom: 2px solid #5b21b6;
@@ -156,7 +153,6 @@ export function exportToPDF(posts, activeFilters = {}) {
             font-size: 28px;
             margin-top: 10px;
             margin-bottom: 5px;
-            color: #111;
           }
           .timestamp {
             color: #666;
@@ -227,64 +223,34 @@ export function exportToPDF(posts, activeFilters = {}) {
             .no-print { display: none; }
           }
         </style>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
       </head>
       <body>
-        <div id="report-content">
-          <div class="report-header">
-            <div class="logo-area">
-              <div class="logo-text">Zebvo Newswire</div>
-              <div class="timestamp">Generated on: ${new Date().toLocaleString()}</div>
-            </div>
-            <h1 class="report-title">Social Media Scraper: Passport Aggregation Report</h1>
-            <p style="margin: 0; color: #666; font-size: 14px;">Real-time passport tracking dashboard data aggregation.</p>
+        <div class="report-header">
+          <div class="logo-area">
+            <div class="logo-text">Zebvo Newswire</div>
+            <div class="timestamp">Generated on: ${new Date().toLocaleString()}</div>
           </div>
-          
-          <div class="filters-section">
-            <strong>Active Filters:</strong> ${filterDesc || 'None (Showing All)'} 
-            <span style="float: right;"><strong>Total Posts:</strong> ${posts.length}</span>
-          </div>
+          <h1 class="report-title">Social Media Scraper: Passport Aggregation Report</h1>
+          <p>Real-time passport tracking dashboard data aggregation.</p>
+        </div>
+        
+        <div class="filters-section">
+          <strong>Active Filters:</strong> ${filterDesc || 'None (Showing All)'} 
+          <span style="float: right;"><strong>Total Posts:</strong> ${posts.length}</span>
+        </div>
 
-          <div class="posts-list">
-            ${postsHtml}
-          </div>
+        <div class="posts-list">
+          ${postsHtml}
         </div>
 
         <script>
           window.onload = function() {
             setTimeout(function() {
-              if (window.html2pdf) {
-                const element = document.getElementById('report-content');
-                const opt = {
-                  margin:       10,
-                  filename:     '${pdfFilename}',
-                  image:        { type: 'jpeg', quality: 0.98 },
-                  html2canvas:  { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
-                  jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                };
-                
-                window.html2pdf()
-                  .set(opt)
-                  .from(element)
-                  .save()
-                  .then(function() {
-                    setTimeout(function() {
-                      window.close();
-                    }, 500);
-                  })
-                  .catch(function(err) {
-                    console.error('PDF Generation Error:', err);
-                    window.print();
-                    window.close();
-                  });
-              } else {
-                console.warn('html2pdf script not loaded. Falling back to native print.');
-                window.print();
-                window.close();
-              }
+              window.print();
+              window.close();
             }, 500);
           };
-        <\/script>
+        </script>
       </body>
     </html>
   `);
