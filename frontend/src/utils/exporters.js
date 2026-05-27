@@ -290,11 +290,13 @@ export function exportToPDF(posts, activeFilters = {}) {
     `).join('');
 
     const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
+    container.style.position = 'fixed';
+    container.style.left = '0';
+    container.style.top = '0';
     container.style.width = '800px';
     container.style.background = '#ffffff';
     container.style.color = '#333333';
+    container.style.zIndex = '-9999';
     
     container.innerHTML = `
       <style>
@@ -417,22 +419,25 @@ export function exportToPDF(posts, activeFilters = {}) {
       margin:       10,
       filename:     `passport_social_media_report_${new Date().toISOString().split('T')[0]}.pdf`,
       image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true },
+      html2canvas:  { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    window.html2pdf()
-      .set(opt)
-      .from(container)
-      .save()
-      .then(() => {
-        document.body.removeChild(container);
-      })
-      .catch(err => {
-        console.error('PDF Generation Error:', err);
-        document.body.removeChild(container);
-        fallbackPrint(posts, activeFilters);
-      });
+    // Wait for DOM parsing and layout resolution
+    setTimeout(() => {
+      window.html2pdf()
+        .set(opt)
+        .from(container)
+        .save()
+        .then(() => {
+          document.body.removeChild(container);
+        })
+        .catch(err => {
+          console.error('PDF Generation Error:', err);
+          document.body.removeChild(container);
+          fallbackPrint(posts, activeFilters);
+        });
+    }, 300);
   };
 
   if (window.html2pdf) {
