@@ -1,8 +1,12 @@
 import express from 'express';
+import crypto from 'crypto';
+import mongoose from 'mongoose';
 import { scrapeNewPost, seedInitialPosts, processPost } from '../services/scraper.js';
+import { getLiveMatches } from '../services/football.js';
 import { clusterPosts } from '../services/nlp.js';
 import { translateText } from '../services/translation.js';
 import Post from '../models/Post.js';
+import User from '../models/User.js';
 
 const router = express.Router();
 
@@ -256,6 +260,206 @@ router.post('/reset', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 7. GET /api/football/live - Get live football match scores
+router.get('/football/live', (req, res) => {
+  try {
+    const liveMatches = getLiveMatches();
+    res.json({
+      success: true,
+      matches: liveMatches
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PASSWORD HASHING HELPER
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+// AUTHENTICATION MIDDLEWARE
+async function authenticateUser(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const userId = authHeader.split(' ')[1];
+    if (mongoose.Types.ObjectId.isValid(userId)) {
+      try {
+        const user = await User.findById(userId);
+        if (user) {
+          req.user = user;
+        }
+      } catch (err) {
+        console.error('Auth error:', err);
+      }
+    }
+  }
+  next();
+}
+
+// 8. POST /api/auth/register - Register new user
+router.post('/auth/register', async (req, res) => {
+  const { username, password, avatar } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ success: false, error: 'Username and password are required.' });
+  }
+  try {
+    const existing = await User.findOne({ username });
+    if (existing) {
+      return res.status(400).json({ success: false, error: 'Username already exists.' });
+    }
+    const hashedPassword = hashPassword(password);
+    const user = new User({
+      username,
+      password: hashedPassword,
+      avatar: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=8b5cf6&color=fff`
+    });
+    await user.save();
+    res.json({
+      success: true,
+      user: { id: user._id, username: user.username, avatar: user.avatar },
+      token: user._id.toString()
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 9. POST /api/auth/login - User login
+router.post('/auth/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ success: false, error: 'Username and password are required.' });
+  }
+  try {
+    const user = await User.findOne({ username });
+    if (!user || user.password !== hashPassword(password)) {
+      return res.status(400).json({ success: false, error: 'Invalid username or password.' });
+    }
+    res.json({
+      success: true,
+      user: { id: user._id, username: user.username, avatar: user.avatar },
+      token: user._id.toString()
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 10. GET /api/auth/me - Get current user profile
+router.get('/auth/me', authenticateUser, (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: 'Not authorized.' });
+  }
+  res.json({
+    success: true,
+    user: { id: req.user._id, username: req.user.username, avatar: req.user.avatar }
+  });
+});
+
+// 11. POST /api/posts - Create custom post (auth required)
+router.post('/posts', authenticateUser, async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: 'Must be logged in to create a post.' });
+  }
+  const { text, category, region, postImage, postVideo } = req.body;
+  if (!text || !category || !region) {
+    return res.status(400).json({ success: false, error: 'Text, category, and region are required.' });
+  }
+  try {
+    const rawPost = {
+      platform: 'Zebvo',
+      author: `@${req.user.username}`,
+      authorName: req.user.username,
+      authorAvatar: req.user.avatar,
+      text,
+      region,
+      postImage,
+      postVideo,
+      category,
+      likes: 0,
+      shares: 0,
+      comments: 0
+    };
+    const processed = processPost(rawPost);
+    const post = new Post(processed);
+    await post.save();
+    res.json({ success: true, post: { ...post.toObject(), id: post._id.toString() } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 12. POST /api/posts/:id/like - Toggle like on a post (auth required)
+router.post('/posts/:id/like', authenticateUser, async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: 'Must be logged in to like a post.' });
+  }
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ success: false, error: 'Post not found.' });
+    }
+
+    if (!post.likedBy) {
+      post.likedBy = [];
+    }
+
+    const likedIndex = post.likedBy.indexOf(req.user._id);
+    let liked = false;
+    if (likedIndex > -1) {
+      post.likedBy.splice(likedIndex, 1);
+      post.likes = Math.max(0, post.likes - 1);
+      liked = false;
+    } else {
+      post.likedBy.push(req.user._id);
+      post.likes = (post.likes || 0) + 1;
+      liked = true;
+    }
+
+    await post.save();
+    res.json({ success: true, likes: post.likes, liked });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 13. POST /api/posts/:id/comment - Comment on a post (auth required)
+router.post('/posts/:id/comment', authenticateUser, async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: 'Must be logged in to comment.' });
+  }
+  const { text } = req.body;
+  if (!text || !text.trim()) {
+    return res.status(400).json({ success: false, error: 'Comment text is required.' });
+  }
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ success: false, error: 'Post not found.' });
+    }
+
+    const newComment = {
+      userId: req.user._id,
+      authorName: req.user.username,
+      text: text.trim(),
+      timestamp: new Date()
+    };
+
+    if (!post.commentsList) {
+      post.commentsList = [];
+    }
+
+    post.commentsList.push(newComment);
+    post.comments = post.commentsList.length;
+
+    await post.save();
+    res.json({ success: true, comment: newComment, commentsCount: post.comments });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

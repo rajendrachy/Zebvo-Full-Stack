@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import apiRouter from './routes/api.js';
 import { seedInitialPosts, startScraperScheduler } from './services/scraper.js';
+import { startFootballSimulation } from './services/football.js';
 
 dotenv.config();
 
@@ -119,11 +120,22 @@ mongoose.connect(MONGODB_URI)
   .then(async () => {
     console.log('[Server] Successfully connected to MongoDB Atlas.');
     
+    // Drop old TTL index if it exists to allow dynamic TTL index expiresAt_1
+    try {
+      await mongoose.model('Post').collection.dropIndex('timestamp_1');
+      console.log('[Server] Successfully dropped old TTL index timestamp_1');
+    } catch (e) {
+      // Index did not exist or already dropped, safe to ignore
+    }
+    
     // Seed initial posts if DB is empty
     await seedInitialPosts();
     
     // Start background scraper scheduler (adds posts every 30s)
     startScraperScheduler();
+    
+    // Start football match updates simulation
+    startFootballSimulation();
 
     // Start listening on port
     app.listen(PORT, () => {

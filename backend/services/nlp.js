@@ -134,22 +134,20 @@ export function analyzeSentiment(text) {
  * Keyword-based Auto-Categorisation
  */
 const CATEGORY_KEYWORDS = {
-  'Tatkal': ['tatkal', 'fast track', 'urgent', 'emergency', 'tatkaal', 'tatkal fee', 'tatkal process'],
-  'Appointments': ['appointment', 'slot', 'slots', 'booking', 'psk', 'passport seva kendra', 'rpo', 'schedule', 'reschedule', 'dates', 'appointment date'],
-  'Renewal': ['renew', 'renewal', 'expired', 'expiring', 're-issue', 'renewing', 'validity', '10 years'],
-  'Application': ['apply', 'application', 'new passport', 'fresh passport', 'documents', 'annexure', 'police verification', 'verification status', 'status tracker', 'arn', 'file number', 'upload'],
-  'Visa': ['visa', 'vfs', 'stamping', 'embassy', 'consulate', 'immigration approval', 'schengen', 'student visa', 'h1b'],
-  'Travel Issues': ['lost', 'stolen', 'airport', 'customs', 'damaged', 'border', 'transit', 'flight status', 'deported', 'immigration check', 'stuck airport'],
-  'Government Announcements': ['ministry', 'mea', 'government', 'official', 'announcement', 'notice', 'circular', 'jaishankar', 'passport office alert', 'passport seva portal', 'maintenance'],
-  'Scams/Fraud': ['scam', 'fake website', 'fraud', 'agent cheat', 'charge extra', 'alert', 'phishing', 'scammed', 'touts', 'unofficial', 'extortion'],
-  'News': ['report', 'according to', 'newswire', 'index', 'ranking', 'global passport', 'power', 'henley', 'passport index', 'journal', 'headline']
+  'Sports': ['football', 'soccer', 'sports', 'match', 'goal', 'cricket', 'game', 'tournament', 'champions', 'athletics', 'player', 'stadium', 'olympics'],
+  'Entertainment': ['entertainment', 'movie', 'movies', 'celebrity', 'hollywood', 'bollywood', 'actor', 'actress', 'music', 'album', 'song', 'cinema', 'show', 'theater', 'award', 'oscars', 'pop star'],
+  'Technology': ['technology', 'tech', 'software', 'ai', 'artificial intelligence', 'chatgpt', 'openai', 'smartphone', 'gadget', 'crypto', 'blockchain', 'innovation', 'app', 'cybersecurity'],
+  'Politics': ['politics', 'government', 'election', 'minister', 'president', 'senate', 'parliament', 'vote', 'policy', 'democracy', 'bill', 'congress', 'ministry', 'lula', 'g7'],
+  'Business': ['business', 'finance', 'market', 'stocks', 'economy', 'startup', 'shares', 'revenue', 'investing', 'company', 'industry', 'visa', 'bank', 'commerce', 'gdp', 'inflation'],
+  'IPO in Nepal': ['nepal', 'nepse', 'ipo', 'share allotment', 'sebon', 'right share', 'debenture nepal', 'hydropower ipo', 'nepal share', 'meroshare'],
+  'Trading': ['trading', 'crypto', 'forex', 'stocks trading', 'options trading', 'day trading', 'technical analysis', 'chart patterns', 'candlestick', 'leverage', 'bitcoin', 'ether', 'solana']
 };
 
 export function classifyCategory(text) {
-  if (!text) return 'Personal Experiences';
+  if (!text) return 'General';
   const cleanText = text.toLowerCase();
 
-  let bestCategory = 'Personal Experiences';
+  let bestCategory = 'General';
   let maxScore = 0;
 
   for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
@@ -169,62 +167,30 @@ export function classifyCategory(text) {
     }
   }
 
-  // If score is 0, let's check if it fits Personal Experiences vs News.
-  // News usually has a formal reporting tone or mentions locations/sources.
-  if (maxScore === 0) {
-    if (cleanText.includes('i ') || cleanText.includes('my ') || cleanText.includes('we ') || cleanText.includes('me ')) {
-      bestCategory = 'Personal Experiences';
-    } else {
-      bestCategory = 'News';
-    }
-  }
-
   return bestCategory;
 }
 
-/**
- * Rule/Template-based AI Summarizer (~30 words)
- */
 export function generateSummary(text, category, platform) {
   if (!text) return '';
-  const lower = text.toLowerCase();
-
-  // Extract delay duration (e.g., "delayed for 3 weeks")
-  const durMatch = lower.match(/delayed for (\d+\s?(?:weeks?|days?))/);
-  const duration = durMatch ? durMatch[1] : null;
-
-  // Extract location (e.g., "in Delhi")
-  const locMatch = lower.match(/in ([a-zA-Z]+)/);
-  const location = locMatch ? locMatch[1] : null;
-
-  // Determine topic (focus on passport renewal if mentioned, else generic passport)
-  const topic = /passport renewal/.test(lower) ? "passport renewal" : /passport/.test(lower) ? "passport" : null;
-
-  // Build concise summary
-  let summary = "User reports";
-  if (duration) summary += ` a ${duration}`;
-  if (topic) summary += ` ${topic}`;
-  if (location) summary += ` in ${location}`;
-
-  // Detect lack of response
-  if (lower.includes('nobody') || lower.includes('no response')) {
-    summary += " and lack of response from authorities";
+  
+  const clean = text.replace(/\s+/g, ' ').trim();
+  const words = clean.split(' ');
+  if (words.length <= 15) {
+    return clean;
   }
+  
+  const sentences = clean.split(/[.!?]\s+/);
+  if (statusesAndSentencesMatch(sentences)) {
+    let summary = sentences[0];
+    if (!/[.!?]$/.test(summary)) summary += '.';
+    return summary;
+  }
+  
+  return words.slice(0, 20).join(' ') + '...';
+}
 
-  summary = summary.trim();
-  // Pad short summaries up to roughly 30 words using original text fragments
-  const words = summary.split(/\s+/);
-  if (words.length < 10) {
-    const extra = text.replace(/\s+/g, ' ').trim().split(' ').slice(0, 30 - words.length).join(' ');
-    if (extra) summary += ' ' + extra;
-  }
-  // If still very short, append a generic informative sentence about passport issues in Punjab
-  const currentWordCount = summary.split(/\s+/).length;
-  if (currentWordCount < 15) {
-    summary += ' This post discusses passport related concerns in Punjab and seeks assistance from the relevant authorities.';
-  }
-  if (!summary.endsWith('.')) summary += '.';
-  return summary;
+function statusesAndSentencesMatch(sentences) {
+  return sentences.length > 0 && sentences[0].split(' ').length >= 8;
 }
 
 

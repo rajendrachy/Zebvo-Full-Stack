@@ -6,19 +6,42 @@ const TRANSLATION_CACHE = {};
 // ISO language codes
 const LANG_MAP = {
   'english': 'en',
+  'en': 'en',
   'hindi': 'hi',
+  'hi': 'hi',
   'punjabi': 'pa',
+  'pa': 'pa',
   'spanish': 'es',
+  'es': 'es',
   'french': 'fr',
+  'fr': 'fr',
   'german': 'de',
+  'de': 'de',
   'arabic': 'ar',
+  'ar': 'ar',
   'chinese': 'zh',
+  'zh': 'zh',
   'russian': 'ru',
-  'japanese': 'ja'
+  'ru': 'ru',
+  'japanese': 'ja',
+  'ja': 'ja',
+  'nepali': 'ne',
+  'ne': 'ne'
 };
 
 // Pre-defined phrase translations for common fallback keywords
 const KEYWORD_FALLBACKS = {
+  'ne': {
+    'passport': 'पासपोर्ट',
+    'appointment': 'अपोइन्टमेन्ट',
+    'renewal': 'नवीनीकरण',
+    'delay': 'ढिलाइ',
+    'scam': 'घोटाला',
+    'official': 'आधिकारिक',
+    'visa': 'भिसा',
+    'travel': 'यात्रा',
+    'tatkal': 'तत्काल'
+  },
   'hi': {
     'passport': 'पासपोर्ट',
     'appointment': 'अपॉइंटमेंट',
@@ -220,9 +243,20 @@ function generateFallbackTranslation(text, targetCode) {
     return `[Translated to ${targetCode.toUpperCase()}]: ${text}`;
   }
 
-  // Let's check for matches in the original text and build a customized fallback sentence
   const clean = text.toLowerCase();
-  
+  if (targetCode === 'ne') {
+    if (clean.includes('scam') || clean.includes('fake')) {
+      return `पासपोर्ट सेवामा ${dict['scam']} सम्बन्धी चेतावनी। नक्कली वेबसाइटहरूबाट बच्नुहोस्।`;
+    }
+    if (clean.includes('appointment') || clean.includes('slot')) {
+      return `पासपोर्ट सेवा केन्द्र (PSK) मा ${dict['appointment']} बुकिङ र स्लटको उपलब्धता सम्बन्धी अपडेट।`;
+    }
+    if (clean.includes('renew') || clean.includes('renewal')) {
+      return `पासपोर्टको ${dict['renewal']} प्रक्रिया र स्थिति।`;
+    }
+    return `पासपोर्ट सेवासँग सम्बन्धित पोस्ट: "${text.substring(0, 30)}..."`;
+  }
+
   if (targetCode === 'hi') {
     if (clean.includes('scam') || clean.includes('fake')) {
       return `पासपोर्ट सेवा में ${dict['scam']} के बारे में चेतावनी। अनाधिकृत वेबसाइटों से सावधान रहें।`;
