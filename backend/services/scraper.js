@@ -134,6 +134,56 @@ async function safeFetch(url, timeoutMs = 6000) {
   }
 }
 
+// Fetch a relevant YouTube video embed URL for a given search query
+// Uses YouTube's public RSS feed (no API key needed)
+async function fetchYouTubeVideo(query) {
+  try {
+    const url = `https://www.youtube.com/feeds/videos.xml?q=${encodeURIComponent(query)}`;
+    const res = await safeFetch(url, 5000);
+    if (!res.ok) return '';
+    const xmlText = await res.text();
+    const entryMatch = xmlText.match(/<entry>[\s\S]*?<\/entry>/);
+    if (!entryMatch) return '';
+    const videoIdMatch = entryMatch[0].match(/<yt:videoId>([^<]+)<\/yt:videoId>/);
+    if (!videoIdMatch) return '';
+    console.log(`[Scraper] Found YouTube video: ${videoIdMatch[1]} for query "${query.slice(0, 50)}"`);
+    return `https://www.youtube.com/embed/${videoIdMatch[1]}`;
+  } catch (err) {
+    console.warn(`[Scraper] YouTube video fetch failed for query "${query.slice(0, 50)}":`, err.message);
+    return '';
+  }
+}
+
+// Dynamic image search from Wikipedia API using a keyword/query
+async function fetchRealImageForQuery(q, classLevel) {
+  try {
+    // Clean up the query (remove special chars, hashtags, and limit length)
+    const cleanQ = q
+      .replace(/#\w+/g, '') // remove hashtags
+      .replace(/[^\w\s\u00C0-\u017F-]/gi, ' ') // replace special chars with space
+      .trim()
+      .split(/\s+/)
+      .slice(0, 4) // use first 4 words to keep search broad and relevant
+      .join(' ');
+
+    if (!cleanQ || cleanQ.length < 3) return EDU_IMAGES[classLevel];
+
+    const url = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(cleanQ)}&gsrlimit=1&prop=pageimages&piprop=thumbnail&pithumbsize=600&format=json&origin=*`;
+    const res = await safeFetch(url, 4000);
+    if (res.ok) {
+      const data = await res.json();
+      const pages = data?.query?.pages || {};
+      for (const pageId in pages) {
+        const source = pages[pageId].thumbnail?.source;
+        if (source && source.startsWith('http')) return source;
+      }
+    }
+  } catch (err) {
+    console.warn('[Scraper] Failed to fetch real image for query:', q, err.message);
+  }
+  return EDU_IMAGES[classLevel];
+}
+
 // 1. Wikipedia API — fetch article summaries for education topics
 async function fetchWikipediaEdu(config) {
   const results = [];
@@ -145,6 +195,9 @@ async function fetchWikipediaEdu(config) {
       if (!data.extract || data.extract.length < 40) continue;
 
       const text = `${config.label}: ${data.title} — ${data.extract.slice(0, 400)}`;
+      // Fetch dynamic/real page summary thumbnail if it exists
+      const postImage = data.thumbnail?.source || data.originalimage?.source || EDU_IMAGES[config.classLevel];
+
       results.push({
         platform: config.platform,
         author: config.author,
@@ -158,7 +211,7 @@ async function fetchWikipediaEdu(config) {
         language: 'English',
         region: 'Nepal',
         category: config.classLevel,
-        postImage: EDU_IMAGES[config.classLevel],
+        postImage,
         postVideo: '',
       });
       console.log(`[EduScraper] Wikipedia: got article "${data.title}" for ${config.classLevel}`);
@@ -179,16 +232,20 @@ async function fetchWikimediaSearch(config) {
   ];
   for (const q of queries) {
     try {
-      const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=3&format=json&origin=*`;
+      const url = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=3&prop=pageimages|extracts&piprop=thumbnail&pithumbsize=600&exintro=1&explaintext=1&exchars=300&format=json&origin=*`;
       const res = await safeFetch(url);
       if (!res.ok) continue;
       const data = await res.json();
-      const items = data?.query?.search || [];
-      for (const item of items.slice(0, 2)) {
-        if (!item.snippet || item.snippet.length < 30) continue;
-        // Clean HTML tags from snippet
-        const cleanSnippet = item.snippet.replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim();
-        const text = `${config.label} Update: ${item.title} — ${cleanSnippet}`;
+      const pages = data?.query?.pages || {};
+      for (const pageId in pages) {
+        const page = pages[pageId];
+        const snippet = page.extract || '';
+        if (!snippet || snippet.length < 30) continue;
+        const text = `${config.label} Update: ${page.title} — ${snippet}`;
+        
+        // Get real image from Wikipedia page generator search result
+        const image = page.thumbnail?.source || EDU_IMAGES[config.classLevel];
+
         results.push({
           platform: config.platform,
           author: config.author,
@@ -202,11 +259,11 @@ async function fetchWikimediaSearch(config) {
           language: 'English',
           region: 'Nepal',
           category: config.classLevel,
-          postImage: EDU_IMAGES[config.classLevel],
+          postImage: image,
           postVideo: '',
         });
       }
-      console.log(`[EduScraper] Wikimedia search: ${items.length} results for "${q}"`);
+      console.log(`[EduScraper] Wikimedia search: results for "${q}"`);
     } catch (err) {
       console.warn(`[EduScraper] Wikimedia search failed for "${q}":`, err.message);
     }
@@ -374,6 +431,23 @@ async function fetchGoogleNewsEdu(config) {
       console.warn(`[EduScraper] Google News failed for ${config.classLevel}:`, err.message);
     }
   }
+
+  // Resolve real images for all items in parallel using Wikipedia API search generator
+  if (results.length > 0) {
+    try {
+      const imagePromises = results.map(item => fetchRealImageForQuery(item.text, config.classLevel));
+      const resolvedImages = await Promise.allSettled(imagePromises);
+      results.forEach((item, idx) => {
+        const imgRes = resolvedImages[idx];
+        if (imgRes.status === 'fulfilled') {
+          item.postImage = imgRes.value;
+        }
+      });
+    } catch (imageErr) {
+      console.warn('[EduScraper] Failed to batch fetch real images for Google News:', imageErr.message);
+    }
+  }
+
   return results;
 }
 
@@ -492,8 +566,22 @@ export async function fetchEducationFeeds() {
 
 // Fetch real-time feeds from Mastodon and Google News APIs without credentials
 export async function fetchRealFeeds() {
-  const newsUrls = [
-    'https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en',
+  const rssSources = [
+    {
+      url: 'https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en',
+      category: 'General',
+      region: 'India'
+    },
+    {
+      url: 'https://news.google.com/rss/search?q=IPO+Nepal+OR+NEPSE+OR+SEBON+OR+Meroshare+OR+hydropower+share&hl=en-NP&gl=NP&ceid=NP:en',
+      category: 'IPO in Nepal',
+      region: 'Nepal'
+    },
+    {
+      url: 'https://news.google.com/rss/search?q=Trading+Stock+Market+OR+Crypto+OR+Forex+OR+Bitcoin&hl=en-US&gl=US&ceid=US:en',
+      category: 'Trading',
+      region: 'USA'
+    }
   ];
   const results = [];
 
@@ -578,10 +666,10 @@ export async function fetchRealFeeds() {
     }
   }
 
-  // Google News RSS (general)
-  for (const url of newsUrls) {
+  // Google News RSS (general, Nepal IPO, Trading)
+  for (const sourceObj of rssSources) {
     try {
-      const res = await fetch(url, {
+      const res = await fetch(sourceObj.url, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
       });
       if (res.ok) {
@@ -616,15 +704,15 @@ export async function fetchRealFeeds() {
               comments: Math.floor(Math.random() * 50) + 5,
               timestamp: pubDate,
               language: 'English',
-              region: 'India',
-              category: 'General'
+              region: sourceObj.region,
+              category: sourceObj.category
             });
             count++;
           }
         }
       }
     } catch (err) {
-      console.error('[Scraper] Error fetching Google News real feeds:', err);
+      console.error(`[Scraper] Error fetching Google News for ${sourceObj.category}:`, err);
     }
   }
 
@@ -635,6 +723,19 @@ export async function fetchRealFeeds() {
     console.log(`[Scraper] Merged ${eduPosts.length} education posts into general feed.`);
   } catch (err) {
     console.error('[Scraper] Education feed fetch failed:', err);
+  }
+
+  // Enrich YouTube-platform posts with real YouTube video URLs
+  const youTubePosts = results.filter(p => p.platform === 'YouTube' && !p.postVideo);
+  if (youTubePosts.length > 0) {
+    console.log(`[Scraper] Fetching YouTube videos for ${Math.min(youTubePosts.length, 5)} posts...`);
+    const videoPromises = youTubePosts.slice(0, 5).map(async (post) => {
+      const query = post.text.replace(/<[^>]+>/g, '').replace(/[#@]/g, '').replace(/\s+/g, ' ').trim().slice(0, 100);
+      if (query.length < 10) return;
+      const videoUrl = await fetchYouTubeVideo(query);
+      if (videoUrl) post.postVideo = videoUrl;
+    });
+    await Promise.allSettled(videoPromises);
   }
 
   return results;

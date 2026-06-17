@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap');
 
 :root {
   /* HSL Color Palette */
@@ -1022,7 +1022,7 @@ h6 {
   .mobile-admin-footer {
     display: flex;
     position: fixed;
-    bottom: 0;
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
     left: 0;
     right: 0;
     background: var(--bg-glass);
@@ -1053,7 +1053,26 @@ h6 {
 
   /* Padding for main content to prevent mobile admin footer overlap */
   .main-content {
-    padding-bottom: 90px !important;
+    padding-bottom: 160px !important;
+  }
+
+  .newspaper-print-box {
+    padding: 24px 16px;
+    border-radius: var(--radius-md);
+  }
+
+  .newspaper-title {
+    font-size: 2.2rem !important;
+    letter-spacing: 0.02em;
+  }
+
+  .article-body {
+    text-align: left;
+  }
+
+  .drop-cap {
+    font-size: 2.5rem;
+    line-height: 0.9;
   }
 }
 
@@ -1357,13 +1376,13 @@ h6 {
 .newspaper-print-box {
   width: 100%;
   max-width: 980px;
-  background: #fdfaf2;
-  /* Light cream parchment */
+  background: radial-gradient(circle, #fdfaf2 60%, #f5eedc 100%);
+  /* Light cream parchment with aged texture gradient */
   color: #1a1815;
   /* Ink dark grey */
   padding: 40px;
   border: 1px solid #d4c8b3;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18);
   font-family: 'Georgia', 'Times New Roman', Times, serif;
   position: relative;
   transition: background 0.3s, color 0.3s;
@@ -1371,12 +1390,12 @@ h6 {
 
 /* Invert newspaper colors if data-theme is dark but keep the aged print style */
 [data-theme="dark"] .newspaper-print-box {
-  background: #181512;
-  /* Dark aged charcoal paper */
+  background: radial-gradient(circle, #1c1815 60%, #151210 100%);
+  /* Dark aged charcoal paper with texture */
   color: #e5dfd3;
   /* Aged ink white */
   border-color: #383228;
-  box-shadow: 0 10px 45px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 12px 50px rgba(0, 0, 0, 0.45);
 }
 
 .newspaper-masthead {
@@ -1407,13 +1426,17 @@ h6 {
 }
 
 .newspaper-title {
-  font-family: 'Outfit', 'Georgia', serif;
-  font-size: 3.8rem;
-  font-weight: 800;
+  font-family: 'Playfair Display', 'Georgia', serif;
+  font-size: 4.2rem;
+  font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: -0.01em;
-  margin: 10px 0;
-  line-height: 1;
+  letter-spacing: 0.04em;
+  margin: 15px 0;
+  line-height: 1.1;
+  color: #1a1815;
+}
+[data-theme="dark"] .newspaper-title {
+  color: #e5dfd3;
 }
 
 .newspaper-masthead-bottom {
@@ -1475,6 +1498,8 @@ h6 {
   gap: 8px;
   padding-bottom: 16px;
   border-bottom: 1px dashed rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  min-width: 0;
 }
 
 [data-theme="dark"] .newspaper-article {
@@ -1497,6 +1522,10 @@ h6 {
   line-height: 1.25;
   margin: 0;
   color: #000;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
 }
 
 [data-theme="dark"] .article-title {
@@ -1521,6 +1550,10 @@ h6 {
   font-style: italic;
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  min-width: 0;
 }
 
 [data-theme="dark"] .article-meta {
@@ -1533,6 +1566,10 @@ h6 {
   text-align: justify;
   margin: 0;
   color: #2e2a25;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
 }
 
 [data-theme="dark"] .article-body {
@@ -1553,21 +1590,27 @@ h6 {
 }
 
 .article-media-woodcut {
-  border: 1.5px solid #1a1815;
-  background: #f0ebde;
-  padding: 4px;
-  margin: 6px 0;
-  filter: grayscale(100%) contrast(110%);
-  transition: filter 0.3s;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(0, 0, 0, 0.02);
+  padding: 6px;
+  margin: 10px 0;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  transition: all var(--transition-fast) ease;
 }
 
 [data-theme="dark"] .article-media-woodcut {
-  border-color: #e5dfd3;
-  background: #25221d;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
 }
 
 .article-media-woodcut:hover {
-  filter: none;
+  transform: scale(1.01);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+[data-theme="dark"] .article-media-woodcut:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
 }
 
 .article-media-woodcut img,

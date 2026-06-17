@@ -143,7 +143,8 @@ const CATEGORY_KEYWORDS = {
   'Politics': ['politics', 'government', 'election', 'minister', 'president', 'senate', 'parliament', 'vote', 'policy', 'democracy', 'bill', 'congress', 'ministry', 'lula', 'g7'],
   'Business': ['business', 'finance', 'market', 'stocks', 'economy', 'startup', 'shares', 'revenue', 'investing', 'company', 'industry', 'visa', 'bank', 'commerce', 'gdp', 'inflation'],
   'IPO in Nepal': ['nepal', 'nepse', 'ipo', 'share allotment', 'sebon', 'right share', 'debenture nepal', 'hydropower ipo', 'nepal share', 'meroshare'],
-  'Trading': ['trading', 'crypto', 'forex', 'stocks trading', 'options trading', 'day trading', 'technical analysis', 'chart patterns', 'candlestick', 'leverage', 'bitcoin', 'ether', 'solana']
+  'Trading': ['trading', 'crypto', 'forex', 'stocks trading', 'options trading', 'day trading', 'technical analysis', 'chart patterns', 'candlestick', 'leverage', 'bitcoin', 'ether', 'solana'],
+  'Health': ['health', 'vitamin', 'nutrition', 'diet', 'fitness', 'medical', 'doctor', 'hospital', 'medicine', 'wellness', 'disease', 'patient', 'vaccine', 'surgery', 'healthcare', 'clinic', 'therapy', 'protein', 'mineral', 'antioxidant', 'calcium', 'iron', 'zinc']
 };
 
 export function classifyCategory(text) {

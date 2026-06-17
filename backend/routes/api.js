@@ -359,7 +359,7 @@ async function authenticateUser(req, res, next) {
 
 // 8. POST /api/auth/register - Register new user
 router.post('/auth/register', async (req, res) => {
-  const { username, password, avatar } = req.body;
+  const { username, password, avatar, preferredCategories } = req.body;
   if (!username || !password) {
     return res.status(400).json({ success: false, error: 'Username and password are required.' });
   }
@@ -372,12 +372,13 @@ router.post('/auth/register', async (req, res) => {
     const user = new User({
       username,
       password: hashedPassword,
-      avatar: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=8b5cf6&color=fff`
+      avatar: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=8b5cf6&color=fff`,
+      preferredCategories: Array.isArray(preferredCategories) ? preferredCategories : []
     });
     await user.save();
     res.json({
       success: true,
-      user: { id: user._id, username: user.username, avatar: user.avatar },
+      user: { id: user._id, username: user.username, avatar: user.avatar, preferredCategories: user.preferredCategories || [] },
       token: user._id.toString()
     });
   } catch (err) {
@@ -398,7 +399,7 @@ router.post('/auth/login', async (req, res) => {
     }
     res.json({
       success: true,
-      user: { id: user._id, username: user.username, avatar: user.avatar },
+      user: { id: user._id, username: user.username, avatar: user.avatar, preferredCategories: user.preferredCategories || [] },
       token: user._id.toString()
     });
   } catch (err) {
@@ -407,14 +408,42 @@ router.post('/auth/login', async (req, res) => {
 });
 
 // 10. GET /api/auth/me - Get current user profile
-router.get('/auth/me', authenticateUser, (req, res) => {
+router.get('/auth/me', authenticateUser, async (req, res) => {
   if (!req.user) {
     return res.status(401).json({ success: false, error: 'Not authorized.' });
   }
+  const fullUser = await User.findById(req.user._id);
+  if (!fullUser) {
+    return res.status(404).json({ success: false, error: 'User not found.' });
+  }
   res.json({
     success: true,
-    user: { id: req.user._id, username: req.user.username, avatar: req.user.avatar }
+    user: {
+      id: fullUser._id,
+      username: fullUser.username,
+      avatar: fullUser.avatar,
+      preferredCategories: fullUser.preferredCategories || [],
+      books: fullUser.books || [],
+      todos: fullUser.todos || [],
+      readingCalendar: fullUser.readingCalendar || []
+    }
   });
+});
+
+// 11. PUT /api/auth/preferences - Update user preferences
+router.put('/auth/preferences', authenticateUser, async (req, res) => {
+  if (!req.user) return res.status(401).json({ success: false, error: 'Not authorized.' });
+  const { preferredCategories } = req.body;
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { preferredCategories: Array.isArray(preferredCategories) ? preferredCategories : [] },
+      { new: true }
+    );
+    res.json({ success: true, preferredCategories: user.preferredCategories || [] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // 11. POST /api/posts - Create custom post (auth required)
@@ -536,6 +565,116 @@ router.delete('/posts/:id', async (req, res) => {
   } catch (error) {
     console.error('[API] Delete error:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// --- USER BOOKS ---
+router.post('/auth/books', authenticateUser, async (req, res) => {
+  if (!req.user) return res.status(401).json({ success: false, error: 'Not authorized.' });
+  const { title, author, url } = req.body;
+  if (!title) return res.status(400).json({ success: false, error: 'Title is required.' });
+  try {
+    const user = await User.findById(req.user._id);
+    user.books.push({ title, author: author || '', url: url || '', totalMinutes: 0, readMinutes: 0 });
+    await user.save();
+    res.json({ success: true, books: user.books });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.put('/auth/books/:bookId', authenticateUser, async (req, res) => {
+  if (!req.user) return res.status(401).json({ success: false, error: 'Not authorized.' });
+  const { title, author, url, totalMinutes, readMinutes } = req.body;
+  try {
+    const user = await User.findById(req.user._id);
+    const book = user.books.id(req.params.bookId);
+    if (!book) return res.status(404).json({ success: false, error: 'Book not found.' });
+    if (title !== undefined) book.title = title;
+    if (author !== undefined) book.author = author;
+    if (url !== undefined) book.url = url;
+    if (totalMinutes !== undefined) book.totalMinutes = totalMinutes;
+    if (readMinutes !== undefined) book.readMinutes = readMinutes;
+    await user.save();
+    res.json({ success: true, books: user.books });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.delete('/auth/books/:bookId', authenticateUser, async (req, res) => {
+  if (!req.user) return res.status(401).json({ success: false, error: 'Not authorized.' });
+  try {
+    const user = await User.findById(req.user._id);
+    user.books.pull(req.params.bookId);
+    await user.save();
+    res.json({ success: true, books: user.books });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- USER TODOS ---
+router.post('/auth/todos', authenticateUser, async (req, res) => {
+  if (!req.user) return res.status(401).json({ success: false, error: 'Not authorized.' });
+  const { text, dueDate } = req.body;
+  if (!text) return res.status(400).json({ success: false, error: 'Text is required.' });
+  try {
+    const user = await User.findById(req.user._id);
+    user.todos.push({ text, done: false, dueDate: dueDate ? new Date(dueDate) : null, createdAt: new Date() });
+    await user.save();
+    res.json({ success: true, todos: user.todos });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.put('/auth/todos/:todoId', authenticateUser, async (req, res) => {
+  if (!req.user) return res.status(401).json({ success: false, error: 'Not authorized.' });
+  const { text, done, dueDate } = req.body;
+  try {
+    const user = await User.findById(req.user._id);
+    const todo = user.todos.id(req.params.todoId);
+    if (!todo) return res.status(404).json({ success: false, error: 'Todo not found.' });
+    if (text !== undefined) todo.text = text;
+    if (done !== undefined) todo.done = done;
+    if (dueDate !== undefined) todo.dueDate = new Date(dueDate);
+    await user.save();
+    res.json({ success: true, todos: user.todos });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.delete('/auth/todos/:todoId', authenticateUser, async (req, res) => {
+  if (!req.user) return res.status(401).json({ success: false, error: 'Not authorized.' });
+  try {
+    const user = await User.findById(req.user._id);
+    user.todos.pull(req.params.todoId);
+    await user.save();
+    res.json({ success: true, todos: user.todos });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- USER READING CALENDAR ---
+router.put('/auth/calendar', authenticateUser, async (req, res) => {
+  if (!req.user) return res.status(401).json({ success: false, error: 'Not authorized.' });
+  const { date, completed } = req.body;
+  if (!date) return res.status(400).json({ success: false, error: 'Date is required.' });
+  try {
+    const user = await User.findById(req.user._id);
+    const existing = user.readingCalendar.find(e => e.date === date);
+    if (existing) {
+      existing.completed = completed;
+    } else {
+      user.readingCalendar.push({ date, completed: !!completed });
+    }
+    await user.save();
+    res.json({ success: true, readingCalendar: user.readingCalendar });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
