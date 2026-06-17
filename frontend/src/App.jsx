@@ -163,37 +163,6 @@ const LinkifiedText = ({ text }) => {
 export default function App() {
   const [theme, setTheme] = useState('dark');
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
-
-  // Deletion Timer state
-  const [timerTick, setTimerTick] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(() => setTimerTick(t => t + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const getDeletionTimer = (timestamp, category) => {
-    const postTime = new Date(timestamp).getTime();
-    const isEdu = category && (category.includes('Class 12') || category.includes('Class 10') || category.includes('Class 8'));
-    const duration = isEdu ? 60 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-    const expiryTime = postTime + duration;
-    const now = Date.now();
-    const remaining = expiryTime - now;
-    if (remaining <= 0) return 'This post deleted from this website or platform';
-
-    const d = Math.floor(remaining / (1000 * 60 * 60 * 24));
-    const h = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const m = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-    const s = Math.floor((remaining % (1000 * 60)) / 1000);
-
-    if (isEdu) {
-      return `This post deleted from this website or platform: ${d}d ${h}h ${m}m ${s}s`;
-    }
-    return `This post deleted from this website or platform: ${h}h ${m}m ${s}s`;
-  };
-
   // Navigation & View Tabs
   // 'feed' (clean posts), 'newspaper' (newspaper layout), 'clustered' (clean posts grouped), 'spam' (gibberish posts), 'analytics' (metrics & graphs)
   const [activeTab, setActiveTab] = useState('feed');
@@ -211,10 +180,12 @@ export default function App() {
   // Data State
   const [posts, setPosts] = useState([]);
   const [clusteredPosts, setClusteredPosts] = useState([]);
+  const [eduPosts, setEduPosts] = useState([]);
   const [stats, setStats] = useState(null);
 
   // UI Indicators
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingEdu, setIsLoadingEdu] = useState(false);
   const [error, setError] = useState(null);
   const [isScraping, setIsScraping] = useState(false);
   const [scrapeNotification, setScrapeNotification] = useState(null);
@@ -240,6 +211,110 @@ export default function App() {
   const [postComments, setPostComments] = useState({}); // postId -> array of comments
   const [activeCommentPostId, setActiveCommentPostId] = useState(null); // tracking which post has comments pane open
   const [typedComments, setTypedComments] = useState({}); // postId -> current typed text
+
+  // Auth State
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem('zebvo_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('zebvo_token') || null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
+  const [authUsername, setAuthUsername] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // Create Post State
+  const [showCreatePostModal, setShowCreatePostModal] = useState(false);
+  const [newPostText, setNewPostText] = useState('');
+  const [newPostCategory, setNewPostCategory] = useState('General');
+  const [newPostRegion, setNewPostRegion] = useState('Nepal');
+  const [isCreatingPost, setIsCreatingPost] = useState(false);
+
+  // Newspaper TTS State
+  const [speakingArticleId, setSpeakingArticleId] = useState(null);
+
+  // Persisted liked posts tracking (postId -> boolean)
+  const [likedPosts, setLikedPosts] = useState({});
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  // Deletion Timer state
+  const [timerTick, setTimerTick] = useState(0);
+  const deletedPostIdsRef = useRef(new Set()); // Track posts already sent for deletion to avoid duplicate calls
+  useEffect(() => {
+    const timer = setInterval(() => setTimerTick(t => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Helper: check if a post has expired
+  const isPostExpired = (timestamp, category) => {
+    const postTime = new Date(timestamp).getTime();
+    const isEdu = category && (category.includes('Class 12') || category.includes('Class 10') || category.includes('Class 8'));
+    const duration = isEdu ? 60 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    return Date.now() >= postTime + duration;
+  };
+
+  // Actually delete an expired post from MongoDB and remove from local state
+  const deleteExpiredPost = async (postId) => {
+    if (deletedPostIdsRef.current.has(postId)) return; // Already being deleted
+    deletedPostIdsRef.current.add(postId);
+    try {
+      await fetch(`${API_BASE}/posts/${postId}`, { method: 'DELETE' });
+      // Remove from local state
+      setPosts(prev => prev.filter(p => p.id !== postId));
+      setClusteredPosts(prev => prev.filter(c => c.leadPost.id !== postId));
+      setEduPosts(prev => prev.filter(p => p.id !== postId));
+      console.log(`[App] Expired post ${postId} deleted from MongoDB.`);
+    } catch (err) {
+      console.error(`[App] Failed to delete expired post ${postId}:`, err);
+      deletedPostIdsRef.current.delete(postId); // Allow retry on failure
+    }
+  };
+
+  // Auto-delete expired posts on every timer tick
+  useEffect(() => {
+    posts.forEach(post => {
+      if (isPostExpired(post.timestamp, post.category)) {
+        deleteExpiredPost(post.id);
+      }
+    });
+    clusteredPosts.forEach(cluster => {
+      if (cluster.leadPost && isPostExpired(cluster.leadPost.timestamp, cluster.leadPost.category)) {
+        deleteExpiredPost(cluster.leadPost.id);
+      }
+    });
+    eduPosts.forEach(post => {
+      if (isPostExpired(post.timestamp, post.category)) {
+        deleteExpiredPost(post.id);
+      }
+    });
+  }, [timerTick, posts, clusteredPosts, eduPosts]);
+
+  const getDeletionTimer = (timestamp, category) => {
+    const postTime = new Date(timestamp).getTime();
+    const isEdu = category && (category.includes('Class 12') || category.includes('Class 10') || category.includes('Class 8'));
+    const duration = isEdu ? 60 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    const expiryTime = postTime + duration;
+    const now = Date.now();
+    const remaining = expiryTime - now;
+    if (remaining <= 0) return 'This post deleted from this website or platform';
+
+    const d = Math.floor(remaining / (1000 * 60 * 60 * 24));
+    const h = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const m = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+    const s = Math.floor((remaining % (1000 * 60)) / 1000);
+
+    if (isEdu) {
+      return `This post deleted from this website or platform: ${d}d ${h}h ${m}m ${s}s`;
+    }
+    return `This post deleted from this website or platform: ${h}h ${m}m ${s}s`;
+  };
+
+
 
   const DEFAULT_COMMENTS_BY_CATEGORY = {
     'Sports': [
@@ -276,31 +351,7 @@ export default function App() {
     ]
   };
 
-  // Auth State
-  const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('zebvo_user');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [authToken, setAuthToken] = useState(() => localStorage.getItem('zebvo_token') || null);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
-  const [authUsername, setAuthUsername] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
 
-  // Create Post State
-  const [showCreatePostModal, setShowCreatePostModal] = useState(false);
-  const [newPostText, setNewPostText] = useState('');
-  const [newPostCategory, setNewPostCategory] = useState('General');
-  const [newPostRegion, setNewPostRegion] = useState('Nepal');
-  const [isCreatingPost, setIsCreatingPost] = useState(false);
-
-  // Newspaper TTS State
-  const [speakingArticleId, setSpeakingArticleId] = useState(null);
-
-  // Persisted liked posts tracking (postId -> boolean)
-  const [likedPosts, setLikedPosts] = useState({});
 
   // Auth Functions
   const handleAuthSubmit = async () => {
@@ -366,6 +417,9 @@ export default function App() {
         setNewPostText('');
         fetchFeed();
         fetchStats();
+        if (activeTab === 'education') {
+          fetchEducationPosts(eduActiveTab);
+        }
       } else {
         alert(data.error || 'Failed to create post.');
       }
@@ -400,6 +454,9 @@ export default function App() {
             }
             return c;
           })
+        );
+        setEduPosts(prevPosts =>
+          prevPosts.map(p => p.id === postId ? { ...p, likes: data.likes } : p)
         );
       }
     } catch (err) {
@@ -446,6 +503,9 @@ export default function App() {
             }
             return c;
           })
+        );
+        setEduPosts(prevPosts =>
+          prevPosts.map(p => p.id === postId ? { ...p, comments: data.commentsCount } : p)
         );
         setTypedComments(prev => ({ ...prev, [postId]: '' }));
       }
@@ -730,11 +790,35 @@ export default function App() {
     }
   }, [activeTab, selectedPlatform, selectedRegion, selectedCategory, selectedSentiment, selectedLanguage, search, sortBy]);
 
+  // Fetch Education Posts
+  const fetchEducationPosts = useCallback(async (classLevel) => {
+    setIsLoadingEdu(true);
+    try {
+      const res = await fetch(`${API_BASE}/posts/education?classLevel=${encodeURIComponent(classLevel)}`);
+      if (!res.ok) throw new Error('Failed to fetch education posts');
+      const data = await res.json();
+      if (data.success) {
+        setEduPosts(data.posts);
+      }
+    } catch (err) {
+      console.error('Education fetch error:', err);
+    } finally {
+      setIsLoadingEdu(false);
+    }
+  }, []);
+
   // Load all components
   useEffect(() => {
     fetchFeed();
     fetchStats();
   }, [fetchFeed]);
+
+  // Fetch education posts when activeTab is education or eduActiveTab changes
+  useEffect(() => {
+    if (activeTab === 'education') {
+      fetchEducationPosts(eduActiveTab);
+    }
+  }, [activeTab, eduActiveTab, fetchEducationPosts]);
 
   // Listen to window focus or periodically pull stats every 30s to match scraper interval
   useEffect(() => {
@@ -873,6 +957,9 @@ export default function App() {
         // Refresh feed and stats
         fetchFeed();
         fetchStats();
+        if (activeTab === 'education') {
+          fetchEducationPosts(eduActiveTab);
+        }
       } else {
         alert(data.message || 'No new unique posts found at this time.');
       }
@@ -894,6 +981,9 @@ export default function App() {
         alert('Database reset to original seed posts!');
         fetchFeed();
         fetchStats();
+        if (activeTab === 'education') {
+          fetchEducationPosts(eduActiveTab);
+        }
       }
     } catch (err) {
       alert(`Reset failed: ${err.message}`);
@@ -2026,7 +2116,12 @@ export default function App() {
             <div className="post-feed" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {(() => {
                 const targetColor = eduActiveTab === 'Class 12' ? '#8b5cf6' : eduActiveTab === 'Class 10' ? '#10b981' : '#f59e0b';
-                const eduPosts = posts.filter(p => !p.isGibberish && (p.category === eduActiveTab || p.text.includes(eduActiveTab)));
+
+                if (isLoadingEdu) {
+                  return (
+                    <div className="loader" style={{ margin: '40px auto' }}></div>
+                  );
+                }
 
                 if (eduPosts.length === 0) {
                   return (

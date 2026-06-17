@@ -27,7 +27,7 @@ async function run() {
       summary: 'NEB Class 12 Results announced officially.',
       isGibberish: false,
       authorAvatar: 'https://ui-avatars.com/api/?name=NEB&background=0D8ABC&color=fff',
-      postImage: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=80',
+      postImage: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80',
       postVideo: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4'
     },
     {

@@ -1,7 +1,7 @@
 import express from 'express';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
-import { scrapeNewPost, seedInitialPosts, processPost } from '../services/scraper.js';
+import { scrapeNewPost, seedInitialPosts, processPost, fetchEducationFeeds } from '../services/scraper.js';
 import { getLiveMatches } from '../services/football.js';
 import { clusterPosts } from '../services/nlp.js';
 import { translateText } from '../services/translation.js';
@@ -263,7 +263,64 @@ router.post('/reset', async (req, res) => {
   }
 });
 
-// 7. GET /api/football/live - Get live football match scores
+// 7. GET /api/posts/education - Get education posts filtered by class level
+// Query: ?classLevel=Class 12 | Class 10 | Class 8
+router.get('/posts/education', async (req, res) => {
+  try {
+    const { classLevel } = req.query;
+    const validLevels = ['Class 12', 'Class 10', 'Class 8'];
+
+    // Build query — if classLevel is specified, filter; otherwise return all education posts
+    const levelFilter = (classLevel && validLevels.includes(classLevel))
+      ? classLevel
+      : { $in: validLevels };
+
+    let posts = await Post.find({ category: levelFilter, isGibberish: false })
+      .sort({ timestamp: -1 })
+      .lean();
+
+    // If we have fewer than 2 posts for this level, trigger an on-demand fetch
+    if (posts.length < 2) {
+      console.log(`[API] Insufficient education posts for ${classLevel}. Triggering on-demand edu fetch...`);
+      try {
+        const freshEduPosts = await fetchEducationFeeds();
+        const targetPosts = classLevel
+          ? freshEduPosts.filter(p => p.category === classLevel)
+          : freshEduPosts;
+
+        for (const rawPost of targetPosts) {
+          const prefix = rawPost.text.substring(0, 80).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const exists = await Post.findOne({ text: { $regex: prefix, $options: 'i' } });
+          if (!exists) {
+            const { processPost: pp } = await import('../services/scraper.js');
+            const processed = pp(rawPost);
+            await new Post(processed).save();
+          }
+        }
+
+        // Re-fetch after insert
+        posts = await Post.find({ category: levelFilter, isGibberish: false })
+          .sort({ timestamp: -1 })
+          .lean();
+      } catch (fetchErr) {
+        console.error('[API] On-demand education fetch error:', fetchErr.message);
+      }
+    }
+
+    const formattedPosts = posts.map(p => ({ ...p, id: p._id.toString() }));
+    res.json({
+      success: true,
+      count: formattedPosts.length,
+      classLevel: classLevel || 'all',
+      posts: formattedPosts
+    });
+  } catch (error) {
+    console.error('[API] Education posts error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 8. GET /api/football/live - Get live football match scores
 router.get('/football/live', (req, res) => {
   try {
     const liveMatches = getLiveMatches();
@@ -460,6 +517,25 @@ router.post('/posts/:id/comment', authenticateUser, async (req, res) => {
     res.json({ success: true, comment: newComment, commentsCount: post.comments });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 14. DELETE /api/posts/:id - Delete a post from MongoDB (used when post expires)
+router.delete('/posts/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, error: 'Invalid post ID.' });
+    }
+    const result = await Post.findByIdAndDelete(id);
+    if (!result) {
+      return res.status(404).json({ success: false, error: 'Post not found or already deleted.' });
+    }
+    console.log(`[API] Post ${id} deleted from MongoDB.`);
+    res.json({ success: true, message: 'Post deleted from database.' });
+  } catch (error) {
+    console.error('[API] Delete error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

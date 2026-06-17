@@ -4,7 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import apiRouter from './routes/api.js';
-import { seedInitialPosts, startScraperScheduler } from './services/scraper.js';
+import { seedInitialPosts, ensureEducationPostsExist, startScraperScheduler } from './services/scraper.js';
 import { startFootballSimulation } from './services/football.js';
 
 dotenv.config();
@@ -130,6 +130,9 @@ mongoose.connect(MONGODB_URI)
     
     // Seed initial posts if DB is empty
     await seedInitialPosts();
+    
+    // Ensure education posts exist for all class levels
+    await ensureEducationPostsExist();
     
     // Start background scraper scheduler (adds posts every 30s)
     startScraperScheduler();

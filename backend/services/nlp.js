@@ -134,6 +134,9 @@ export function analyzeSentiment(text) {
  * Keyword-based Auto-Categorisation
  */
 const CATEGORY_KEYWORDS = {
+  'Class 12': ['class 12', 'neb', 'grade 12', 'hseb', 'neb result', 'plus two', 'plus 2', '+2', 'higher secondary', 'neb exam', 'neb routine', 'class xii', 'grade xii', 'neb board', 'national examination board', 'class 12 result', 'neb grading', 'management class 12', 'science class 12', 'humanities class 12'],
+  'Class 10': ['class 10', 'see result', 'see exam', 'see routine', 'grade 10', 'secondary education examination', 'see board', 'see nepal', 'class x result', 'grade x', 'see grading', 'see marksheet', 'slc', 'iron gate'],
+  'Class 8': ['class 8', 'ble result', 'ble exam', 'ble routine', 'grade 8', 'basic level examination', 'basic level', 'ble nepal', 'grade viii', 'class viii', 'ble board', 'district level examination'],
   'Sports': ['football', 'soccer', 'sports', 'match', 'goal', 'cricket', 'game', 'tournament', 'champions', 'athletics', 'player', 'stadium', 'olympics'],
   'Entertainment': ['entertainment', 'movie', 'movies', 'celebrity', 'hollywood', 'bollywood', 'actor', 'actress', 'music', 'album', 'song', 'cinema', 'show', 'theater', 'award', 'oscars', 'pop star'],
   'Technology': ['technology', 'tech', 'software', 'ai', 'artificial intelligence', 'chatgpt', 'openai', 'smartphone', 'gadget', 'crypto', 'blockchain', 'innovation', 'app', 'cybersecurity'],
